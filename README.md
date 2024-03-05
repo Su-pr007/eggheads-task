@@ -57,36 +57,34 @@ $questionsQ->free();
 2. Использовать метод prepare, вместо query, чтобы обезопасить скрипт от незапланированного поведения. Также добавить освобождение результата запроса и закрытие запросов;
 3. Добавить приведение типов данных, где они могут отличаться
 4. Добавить ограничение по запрашиваемым полям таблицы;
-5. Заменить `array()` на `[]` (по PSR)
+5. Заменить `array()` на `[]` (по PSR);
+6. Вынести запрос из цикла. Подобные действия сильно сказываются на производительности.
 
 
 #### Итоговый вариант:
 
 ```php
 // ...
-$questionsQuery = $mysqli->prepare('SELECT `id`, `user_id` FROM questions WHERE `catalog_id` = ?');
-$questionsQuery->bind_param('i', (int)$catId);
-$questionsQuery->execute();
-$questionsResult = $questionsQuery->get_result();
+$query = $mysqli->prepare('SELECT questions.`id` `q_id`, questions.`user_id` `q_user_id`, users.`name` `u_name`, users.`gender` `u_gender` FROM questions JOIN users ON users.`id` = questions.`user_id` WHERE questions.`catalog_id` = ?');
+$query->bind_param('i', (int)$catId);
+$query->execute();
+$result = $query->get_result();
 
-$result = [];
-while ($question = $questionsResult->fetch_assoc()) {
-	$userQuery = $mysqli->prepare('SELECT name, gender FROM users WHERE `id` = ?');
-	$userQuery->bind_param('i', (int)$question[‘user_id’]);
-	$userQuery->execute();
-	$userResult = $userQuery->get_result();
-
-	$user = $userResult->fetch_assoc();
-	$result[] = [
-		'question' => $question,
-		'user' => $user
+$results = [];
+while ($row = $result->fetch_assoc()) {
+	$results[] = [
+		'question' => [
+		    'id' => $row['id']
+		    'user_id' => $row['q_user_id']
+        ],
+		'user' => [
+		    'name' => $row['u_name']
+		    'gender' => $row['u_gender']
+        ]
 	];
-
-	$userQ->free();
-	$userQuery->close();
 }
-$questionsQuery->free();
-$questionsQuery->close();
+$query->free();
+$query->close();
 // ...
 ```
 
